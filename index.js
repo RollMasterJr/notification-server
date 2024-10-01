@@ -387,8 +387,21 @@ function getStatusEmoji(status) {
     await sendToDiscord(tradeData, webhookUrl);
   }
 
-  // 🔗 WebSocket Connection
-  function connect(config) {
+  // 🔄 Self-Ping Interval to Keep Render Active
+const keepAliveInterval = 14 * 60 * 1000; // 14 minutos em milissegundos
+
+// Função para enviar a requisição HTTP para manter o servidor ativo
+  setInterval(() => {
+    console.log('🔄 Enviando uma requisição para manter o servidor ativo...');
+   http.get(`http://localhost:${port}/`, (res) => {
+    console.log(`🟢 Keep-alive request status code: ${res.statusCode}`);
+   }).on('error', (err) => {
+     console.error('❌ Erro na requisição de keep-alive:', err.message);
+    });
+  }, keepAliveInterval);
+
+   // 🔗 WebSocket Connection
+   function connect(config) {
     socket = new WebSocket(apiUrl, 'graphql-transport-ws', {
       headers: {
         'Cookie': config.cookie,
@@ -399,6 +412,14 @@ function getStatusEmoji(status) {
       }
     });
 
+    let isAlive = true;
+
+    // Handle pong responses to verify connection
+    socket.on('pong', () => {
+      isAlive = true; // Reset the isAlive flag when pong is received
+      console.log('🔄 Pong received. Connection is alive.');
+    });
+
     socket.on('open', () => {
       console.log("✅ WebSocket opened");
       reconnectAttempts = 0;
@@ -407,13 +428,21 @@ function getStatusEmoji(status) {
       socket.send(JSON.stringify(updateTradePayload));
       sockets.push(socket);
       clearInterval(pingInterval);
+  
+      // Start ping-pong mechanism with 14-minute interval
       pingInterval = setInterval(() => {
         if (socket.readyState === WebSocket.OPEN) {
-          socket.send(JSON.stringify({ type: 'ping' }));
+          if (!isAlive) {
+            console.warn('⚠️ No pong received, reconnecting...');
+            socket.terminate(); // Close the socket and trigger reconnect
+          } else {
+            isAlive = false; // Expect pong in the next interval
+            socket.ping();   // Send a ping frame
+          }
         }
-      }, 5000);
+      }, 840000); // Ping every 14 minutes for more frequent checking
     });
-
+  
     socket.on('message', async (data) => {
       const message = JSON.parse(data);
       const trade = message.payload?.data?.createTrade?.trade || message.payload?.data?.updateTrade?.trade;
@@ -421,12 +450,12 @@ function getStatusEmoji(status) {
         await handleTrade(trade);
       }
     });
-
+  
     socket.on('error', (err) => {
       console.error('🚫 WebSocket error:', err.message);
       clearInterval(pingInterval);
     });
-
+  
     socket.on('close', () => {
       console.log('⚠️ WebSocket closed. Attempting to reconnect...');
       clearInterval(pingInterval);
