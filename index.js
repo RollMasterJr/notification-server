@@ -388,7 +388,7 @@ function getStatusEmoji(status) {
   }
 
   // 🔄 Self-Ping Interval to Keep Render Active
-const keepAliveInterval = 10 * 60 * 1000; // 10 minutos em milissegundos
+const keepAliveInterval = 5 * 60 * 1000; // 5 minutos em milissegundos
 
 // Função para enviar a requisição HTTP para manter o servidor ativo
   setInterval(() => {
@@ -429,7 +429,7 @@ const keepAliveInterval = 10 * 60 * 1000; // 10 minutos em milissegundos
       sockets.push(socket);
       clearInterval(pingInterval);
   
-      // Start ping-pong mechanism with 14-minute interval
+      // Start ping-pong mechanism with 10-minute interval
       pingInterval = setInterval(() => {
         if (socket.readyState === WebSocket.OPEN) {
           if (!isAlive) {
