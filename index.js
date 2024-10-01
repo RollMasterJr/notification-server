@@ -1,10 +1,11 @@
 // 📦 Required Libraries
 import readline from 'readline';  // For user input
-import WebSocket from 'ws';        // WebSocket for real-time communication
+import WebSocket from 'ws';       // WebSocket for real-time communication
 import { v4 as uuidv4 } from 'uuid'; // For unique identifiers
-import moment from "moment-timezone"; // For date formatting
-import axios from "axios";         // For making HTTP requests
-import dotenv from 'dotenv';       // For loading environment variables
+import moment from 'moment-timezone'; // For date formatting
+import axios from 'axios';        // For making HTTP requests
+import dotenv from 'dotenv';      // For loading environment variables
+import http from 'http';          // HTTP server for Render integration
 
 // Load environment variables from .env
 dotenv.config();
@@ -80,6 +81,18 @@ async function fetchCurrentUser(cookie) {
     return { userId: null, mainWalletBalance: null };
   }
 }
+
+// 📌 HTTP Server for Render Integration
+const port = process.env.PORT || 4000;
+const server = http.createServer((req, res) => {
+  res.statusCode = 200;
+  res.setHeader('Content-Type', 'text/plain');
+  res.end('Application is running and connected to WebSocket!\n');
+});
+
+server.listen(port, () => {
+  console.log(`HTTP server listening on port ${port}. This is required by Render.`);
+});
 
 // 🛠️ Main Function
 (async function() {
