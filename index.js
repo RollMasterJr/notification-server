@@ -383,12 +383,12 @@ function getStatusEmoji(status) {
       coinBalance
     };
 
-    console.log(`[${moment().tz('Europe/Berlin').format('HH:mm:ss')}] [${tradeType}] Status: ${trade.status}, Item: ${marketName}, Value: ${value}, Markup: ${markup}%, Total Sticker Value: ${totalStickerValue}, Coin Balance: ${coinBalance}`);
+    console.log(`[${moment().tz('America/Sao_Paulo').format('HH:mm:ss')}] [${tradeType}] Status: ${trade.status}, Item: ${marketName}, Value: ${value}, Markup: ${markup}%, Total Sticker Value: ${totalStickerValue}, Coin Balance: ${coinBalance}`);
     await sendToDiscord(tradeData, webhookUrl);
   }
 
   // 🔄 Self-Ping Interval to Keep Render Active
-const keepAliveInterval = 14 * 60 * 1000; // 14 minutos em milissegundos
+const keepAliveInterval = 10 * 60 * 1000; // 10 minutos em milissegundos
 
 // Função para enviar a requisição HTTP para manter o servidor ativo
   setInterval(() => {
@@ -440,7 +440,7 @@ const keepAliveInterval = 14 * 60 * 1000; // 14 minutos em milissegundos
             socket.ping();   // Send a ping frame
           }
         }
-      }, 840000); // Ping every 14 minutes for more frequent checking
+      }, 600000); // Ping every 10 minutes for more frequent checking
     });
   
     socket.on('message', async (data) => {
