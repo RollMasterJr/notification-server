@@ -16,6 +16,7 @@ let sockets = [];
 let socket;
 let pingInterval;
 let reconnectAttempts = 0;
+const messageQueue = [];  // Fila de mensagens a serem enviadas ao Discord
 
 // 🖥️ Readline Interface
 const rl = readline.createInterface({
@@ -215,112 +216,67 @@ server.listen(port, () => {
     }).join('\n');
   }
 
- // 📡 Send Data to Discord
- async function sendToDiscord(tradeData, webhookUrl) {
-  const { tradeType, status, marketName, value, markup, totalStickerValue, coinBalance, stickers } = tradeData;
-  const timestamp = moment().tz('America/Sao_Paulo').format('DD-MM-YYYY HH:mm:ss');
-
-  // Emojis for better visuals
-  const tradeTypeEmoji = tradeType === 'Deposit' ? '🔴' : '🟢';
-  const statusEmoji = getStatusEmoji(status); 
-  const embedColor = tradeType === 'Deposit' ? 0xF04747 : 0x43B581;
-
-  // Format values for display
-  const formattedCoinBalance = coinBalance !== null && coinBalance !== undefined ? coinBalance.toFixed(2) : 'N/A';
-  const formattedValue = value !== null && value !== undefined ? value.toFixed(2) : 'N/A';
-
-  // Se o coinBalance for null, notifica sobre o cookie expirado
-  if (coinBalance === null) {
-      const expiredEmbed = {
-          embeds: [{
-              author: {
-                  name: `${tradeTypeEmoji} Cookie Expirado!`,
-                  icon_url: 'https://cdn-icons-png.flaticon.com/128/9260/9260717.png'
-              },
-              description: `O cookie usado para a autenticação expirou, e o saldo não pôde ser recuperado.`,
-              color: 0xFF0000,
-              fields: [
-                  { name: 'Item', value: marketName || 'Unknown', inline: true },
-                  { name: 'Trade Type', value: tradeType, inline: true },
-                  { name: 'Status', value: status, inline: true },
-                  { name: 'Timestamp', value: timestamp, inline: false }
-              ],
-              footer: {
-                  text: `📅 Timestamp: ${timestamp} | Powered by RollMaster`
-              }
-          }]
-      };
-
-      try {
-          const response = await fetch(webhookUrl, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(expiredEmbed)
-          });
-
-          if (!response.ok) {
-              throw new Error(`Error: ${response.status} ${response.statusText}`);
-          }
-
-          const responseBody = await response.text();
-          if (responseBody) {
-              const data = JSON.parse(responseBody);
-              console.log('✅ Notificação de cookie expirado enviada para o Discord:', data);
-          } else {
-              console.warn('⚠️ Resposta vazia ao notificar sobre o cookie expirado.');
-          }
-      } catch (error) {
-          console.error('🚫 Falha ao enviar notificação de cookie expirado para o Discord:', error);
-      }
-      return; // Para não continuar processando trades sem saldo
-  }
-
-  const embed = {
-      embeds: [{
-          author: {
-              name: `${tradeTypeEmoji} ${tradeType} Trade Notification`,
-              icon_url: 'https://cdn-icons-png.flaticon.com/128/9260/9260717.png'
-          },
-          title: `${statusEmoji} Trade Status: ${status}`,
-          color: embedColor,
-          fields: [
-              { name: 'Item', value: marketName || 'Unknown', inline: true },
-              { name: 'Value', value: `$${formattedValue}`, inline: false },
-              { name: 'Markup', value: `${markup !== null && markup !== undefined ? `${markup}%` : '0%'}`, inline: false },
-              { name: 'Total Sticker Value', value: `$${totalStickerValue !== null && totalStickerValue !== undefined ? totalStickerValue.toFixed(2) : '0'}`, inline: false },
-              { name: 'Balance', value: `$${formattedCoinBalance}`, inline: false },
-              { name: 'Applied Stickers', value: formatStickers(stickers) || 'None' }
-          ],
-          footer: {
-              text: `📅 Timestamp: ${timestamp} | Powered by RollMaster`,
-          }
-      }]
-  };
-
-  try {
-      const response = await fetch(webhookUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(embed)
-      });
-
-      // Verificação da resposta do Discord
-      if (!response.ok) {
-          throw new Error(`Error: ${response.status} ${response.statusText}`);
-      }
-
-      // Verificar se a resposta tem um corpo e se é um JSON válido
-      const responseBody = await response.text();
-      if (responseBody) {
-          const data = JSON.parse(responseBody);
-          console.log('✅ Successfully sent to Discord:', data);
-      } else {
-          console.warn('⚠️ Empty response from Discord.');
-      }
-  } catch (error) {
-      console.error('🚫 Failed to send to Discord:', error);
+ // 📡 Enqueue Message for Discord with Rate Limiting
+async function sendToDiscord(tradeData, webhookUrl) {
+  messageQueue.push({ tradeData, webhookUrl });
+  if (messageQueue.length === 1) {  // Start processing if the queue was empty
+    processQueue();
   }
 }
+
+// 📤 Process the Message Queue with Rate Limiting
+async function processQueue() {
+  while (messageQueue.length > 0) {
+    const { tradeData, webhookUrl } = messageQueue[0];
+    const { tradeType, status, marketName, value, markup, totalStickerValue, coinBalance, stickers } = tradeData;
+    const timestamp = moment().tz('America/Sao_Paulo').format('DD-MM-YYYY HH:mm:ss');
+    const tradeTypeEmoji = tradeType === 'Deposit' ? '🔴' : '🟢';
+    const statusEmoji = getStatusEmoji(status); 
+    const embedColor = tradeType === 'Deposit' ? 0xF04747 : 0x43B581;
+    const formattedCoinBalance = coinBalance !== null && coinBalance !== undefined ? coinBalance.toFixed(2) : 'N/A';
+    const formattedValue = value !== null && value !== undefined ? value.toFixed(2) : 'N/A';
+
+    const embed = {
+      embeds: [{
+        author: {
+          name: `${tradeTypeEmoji} ${tradeType} Trade Notification`,
+          icon_url: 'https://cdn-icons-png.flaticon.com/128/9260/9260717.png'
+        },
+        title: `${statusEmoji} Trade Status: ${status}`,
+        color: embedColor,
+        fields: [
+          { name: 'Item', value: marketName || 'Unknown', inline: true },
+          { name: 'Value', value: `$${formattedValue}`, inline: false },
+          { name: 'Markup', value: `${markup !== null && markup !== undefined ? `${markup}%` : '0%'}`, inline: false },
+          { name: 'Total Sticker Value', value: `$${totalStickerValue !== null && totalStickerValue !== undefined ? totalStickerValue.toFixed(2) : '0'}`, inline: false },
+          { name: 'Balance', value: `$${formattedCoinBalance}`, inline: false },
+          { name: 'Applied Stickers', value: formatStickers(stickers) || 'None' }
+        ],
+        footer: {
+          text: `📅 Timestamp: ${timestamp} | Powered by RollMaster`,
+        }
+      }]
+    };
+
+    try {
+      const response = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(embed)
+      });
+
+      if (!response.ok) throw new Error(`Error: ${response.status} ${response.statusText}`);
+
+      console.log('✅ Successfully sent to Discord:', await response.json());
+    } catch (error) {
+      console.error('🚫 Failed to send to Discord:', error);
+    }
+
+    messageQueue.shift();  // Remove the message after processing
+    await delay(1000);  // Wait for 1 second before sending the next message
+  }
+}
+
 
   // Function to get the appropriate emoji for the status
 function getStatusEmoji(status) {
