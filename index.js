@@ -224,7 +224,12 @@ async function sendToDiscord(tradeData, webhookUrl) {
   }
 }
 
-// 📤 Process the Message Queue with Rate Limiting
+// Função de delay para controle da fila
+function delay(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// 📤 Process the Message Queue with Rate Limiting and Error Handling
 async function processQueue() {
   while (messageQueue.length > 0) {
     const { tradeData, webhookUrl } = messageQueue[0];
@@ -265,9 +270,14 @@ async function processQueue() {
         body: JSON.stringify(embed)
       });
 
-      if (!response.ok) throw new Error(`Error: ${response.status} ${response.statusText}`);
+      if (!response.ok) throw new Error(`HTTP Error: ${response.status} ${response.statusText}`);
 
-      console.log('✅ Successfully sent to Discord:', await response.json());
+      try {
+        const responseBody = await response.json();
+        console.log('✅ Successfully sent to Discord:', responseBody);
+      } catch (jsonError) {
+        console.error('🚫 Failed to parse Discord response:', jsonError);
+      }
     } catch (error) {
       console.error('🚫 Failed to send to Discord:', error);
     }
@@ -276,7 +286,6 @@ async function processQueue() {
     await delay(1000);  // Wait for 1 second before sending the next message
   }
 }
-
 
   // Function to get the appropriate emoji for the status
 function getStatusEmoji(status) {
