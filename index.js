@@ -445,11 +445,24 @@ const keepAliveInterval = 14 * 60 * 1000; // 14 minutos em milissegundos
   
     socket.on('message', async (data) => {
       const message = JSON.parse(data);
-      const trade = message.payload?.data?.createTrade?.trade || message.payload?.data?.updateTrade?.trade;
-      if (trade) {
-        await handleTrade(trade);
+    
+      // Verifique se a mensagem é uma confirmação de conexão
+      if (message.type === 'connection_ack') {
+        console.log('✅ Conexão estabelecida com sucesso.');
+        return; // Ignorar confirmação de conexão
       }
+    
+      const trade = message.payload?.data?.createTrade?.trade || message.payload?.data?.updateTrade?.trade;
+    
+      // Verificação se o trade é válido
+      if (!trade) {
+        console.warn('⚠️ Trade inválido ou vazio recebido:', message);
+        return; // Ignorar mensagem inválida
+      }
+    
+      await handleTrade(trade);
     });
+    
   
     socket.on('error', (err) => {
       console.error('🚫 WebSocket error:', err.message);
