@@ -273,19 +273,17 @@ async function processQueue() {
       if (!response.ok) throw new Error(`HTTP Error: ${response.status} ${response.statusText}`);
 
       try {
-        const responseBody = await response.json();
-        console.log('✅ Successfully sent to Discord:', responseBody);
-      } catch (jsonError) {
-        console.error('🚫 Failed to parse Discord response:', jsonError);
-      }
-    } catch (error) {
-      console.error('🚫 Failed to send to Discord:', error);
+        const responseBody = await response.text(); // Obtenha a resposta como texto
+  if (response.ok) {
+    try {
+      const jsonResponse = JSON.parse(responseBody); // Tente parsear
+      console.log('✅ Successfully sent to Discord:', jsonResponse);
+    } catch (jsonError) {
+      console.error('🚫 Failed to parse Discord response:', jsonError, responseBody);
     }
-
-    messageQueue.shift();  // Remove the message after processing
-    await delay(1000);  // Wait for 1 second before sending the next message
+  } else {
+    console.error(`🚫 Discord responded with status: ${response.status} ${response.statusText}`);
   }
-}
 
   // Function to get the appropriate emoji for the status
 function getStatusEmoji(status) {
