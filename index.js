@@ -298,16 +298,23 @@ server.listen(port, () => {
   };
 
   try {
-      const response = await fetch(webhookUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(embed)
-      });
+    const response = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(embed)
+  });
 
-      // Verificação da resposta do Discord
-      if (!response.ok) {
-          throw new Error(`Error: ${response.status} ${response.statusText}`);
-      }
+  if (response.status === 429) {
+      const retryAfter = response.headers.get('Retry-After');
+      const waitTime = retryAfter ? parseInt(retryAfter, 10) * 1000 : 10000; // 10s como fallback
+      console.warn(`⚠️ Too Many Requests. Waiting for ${waitTime / 1000} seconds.`);
+      await new Promise(resolve => setTimeout(resolve, waitTime));
+      return sendToDiscord(tradeData, webhookUrl); // Tentar novamente após a espera
+  }
+
+  if (!response.ok) {
+      throw new Error(`Error: ${response.status} ${response.statusText}`);
+  }
 
       // Verificar se a resposta tem um corpo e se é um JSON válido
       const responseBody = await response.text();
